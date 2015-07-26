@@ -66,19 +66,20 @@
                         return;
                     }
 
-                    this._.data = data;
-
                     var isMaximize = (editor.getCommand('maximize').state === CKEDITOR.TRISTATE_ON);
+                    var wrap = editor.ui.space('contents_wrap');
 
-                    if (isMaximize) {
-                        editor.ui.space('contents_wrap').addClass('cke_pasteimage_placeholder');
+                    if (isMaximize && wrap) {
+                        wrap.addClass('cke_pasteimage_placeholder');
 
-                    } else {
+                    } else if (!isMaximize) {
                         var placeholderContext = editor.config.pastefileGetPlaceholderContext(editor);
-                        placeholderContext.addClass('cke_pastefile_placeholder');
+                        if (placeholderContext) {
+                            placeholderContext.addClass('cke_pastefile_placeholder');
+                        }
 
-                        if (data === 'inline') {
-                            editor.ui.space('contents_wrap').addClass('cke_pasteimage_placeholder');
+                        if (data === 'inline' && wrap) {
+                            wrap.addClass('cke_pasteimage_placeholder');
                         }
                     }
                 }
@@ -86,16 +87,15 @@
 
             command.on('state', function() {
                 if (this.state !== CKEDITOR.TRISTATE_ON) {
-                    delete this._.data;
                     var placeholderContext = editor.config.pastefileGetPlaceholderContext(editor);
-                    placeholderContext.removeClass('cke_pastefile_placeholder');
-                    editor.ui.space('contents_wrap').removeClass('cke_pasteimage_placeholder');
-                }
-            });
+                    if (placeholderContext) {
+                        placeholderContext.removeClass('cke_pastefile_placeholder');
+                    }
 
-            command.on('refresh', function() {
-                if (this._.data) {
-                    this.exec(this._.data);
+                    var wrap = editor.ui.space('contents_wrap');
+                    if (wrap) {
+                        wrap.removeClass('cke_pasteimage_placeholder');
+                    }
                 }
             });
 
@@ -308,6 +308,8 @@
             event.type === 'drop' &&
             (this._dropContext === event.target || this._dropContext.contains(event.target))
         );
+
+        this._stopDropPropagation = false;
 
         event.preventDefault();
         if (isDrop || event.type !== 'drop') {
