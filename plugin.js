@@ -276,43 +276,40 @@
     function DNDHover(dropContext, editor) {
         this._dropContext = dropContext || document;
         this._editor = editor;
-        this._collection = [];
         this._stopDropPropagation = false;
-        this._show = this._show.bind(this);
-        this._hide = this._hide.bind(this);
-        this._over = this._over.bind(this);
+        this._isShow = false;
+
+        this._leaveDebounce = _.debounce(this._leave.bind(this), 100);
+        this._onDragenter = this._onDragenter.bind(this);
+        this._onDrop = this._onDrop.bind(this);
+        this._onDragover = this._onDragover.bind(this);
 
         this._editor.on('drop', this._onDropEditor, this, null, -1);
-        document.addEventListener('dragover', this._over, false);
-        document.addEventListener('dragenter', this._show, false);
-        document.addEventListener('dragleave', this._hide, false);
-        document.addEventListener('drop', this._hide, false);
+        document.addEventListener('dragover', this._onDragover, false);
+        document.addEventListener('dragenter', this._onDragenter, false);
+        document.addEventListener('drop', this._onDrop, false);
     }
 
     CKEDITOR.event.implementOn(DNDHover.prototype);
 
-    DNDHover.prototype._show = function(event) {
-        event.preventDefault();
-
-        if (!this._collection.length) {
+    DNDHover.prototype._onDragenter = function(event) {
+        if (!this._isShow) {
+            this._isShow = true;
             this.fire('enter', event);
         }
-
-        this._collection.push(event.target);
     };
 
-    DNDHover.prototype._hide = function(event) {
-        var isDrop = (event.type === 'drop');
+    DNDHover.prototype._onDrop = function(event) {
+        event.preventDefault();
+
         var isDropAction = (
-            isDrop &&
             !this._stopDropPropagation &&
             (this._dropContext === event.target || this._dropContext.contains(event.target))
         );
 
-        event.preventDefault();
-
         this._stopDropPropagation = false;
-        this._leaveAction(event, isDrop);
+
+        this._leave();
 
         if (isDropAction) {
             this.fire('drop', event);
@@ -322,7 +319,7 @@
     /**
      * Выполняется без debounce, иначе перехват drop не сработает
      */
-    DNDHover.prototype._over = function(event) {
+    DNDHover.prototype._onDragover = function(event) {
         var command = this._editor.getCommand(CMD_PLACEHOLDER);
 
         // нельзя превентить over при драге елементов внутри редактора
@@ -331,6 +328,9 @@
             return;
         }
 
+        this._leaveDebounce.cancel();
+        this._leaveDebounce();
+
         // разрешаем перехват drop
         event.preventDefault();
         event.dataTransfer.dropEffect = 'copy';
@@ -338,34 +338,23 @@
 
     DNDHover.prototype._onDropEditor = function(event) {
         this._stopDropPropagation = true;
-        this._leaveAction(event.data.$, true);
+        this._leave();
     };
 
-    DNDHover.prototype._leaveAction = function(event, force) {
-        if (force) {
-            this._collection = [];
-
-        } else {
-            var idx = this._collection.indexOf(event.target);
-            if (idx !== -1) {
-                this._collection.splice(idx, 1);
-            }
-        }
-
-        if (!this._collection.length) {
-            this.fire('leave', event);
+    DNDHover.prototype._leave = function() {
+        if (this._isShow) {
+            this._isShow = false;
+            this.fire('leave');
         }
     };
 
     DNDHover.prototype.destroy = function() {
         this.removeAllListeners();
         this._editor.removeListener('drop', this._onDropEditor);
-        document.removeEventListener('dragover', this._over, false);
-        document.removeEventListener('dragenter', this._show, false);
-        document.removeEventListener('dragleave', this._hide, false);
-        document.removeEventListener('drop', this._hide, false);
+        document.removeEventListener('dragover', this._onDragover, false);
+        document.removeEventListener('dragenter', this._onDragenter, false);
+        document.removeEventListener('drop', this._onDrop, false);
         this._dropContext = null;
-        this._collection = [];
     };
 
 
