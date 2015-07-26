@@ -18,7 +18,7 @@
      * @returns {CKEDITOR.dom.element}
      */
     CKEDITOR.config.pastefileGetPlaceholderContext = function(editor) {
-        return editor.ui.space('contents_wrap');
+        return new CKEDITOR.dom.element(document.body);
     };
 
     /**
@@ -52,7 +52,7 @@
                 '.cke_pasteimage_placeholder:after {content: "' + "Вставьте файл прямо в текст" + '";}' +
                 '.cke_pastefile_placeholder:before {content: "' + "Перетащите файл сюда" + '";}' +
                 '.cke_pastefile_placeholder.cke_pasteimage_placeholder:after {content: "";}' +
-                '.cke_maximized .cke_pastefile_placeholder.cke_pasteimage_placeholder:after {content: "' + "Вставьте файл прямо в текст" + '";}'
+                '.cke_pastefile_placeholder .cke_pasteimage_placeholder:after {content: "";}'
             );
         },
 
@@ -60,83 +60,63 @@
             var command = editor.addCommand(CMD_PLACEHOLDER, {
                 'modes': { 'wysiwyg': 1, 'source': 1 },
                 'editorFocus': false,
+                'canUndo': false,
                 'exec': function(editor, data) {
                     if (this.state !== CKEDITOR.TRISTATE_ON) {
                         return;
                     }
 
-                    var placeholderContext = editor.config.pastefileGetPlaceholderContext(editor);
-                    placeholderContext.addClass('cke_pastefile_placeholder');
+                    this._.data = data;
 
-                    if (data === 'inline') {
+                    var isMaximize = (editor.getCommand('maximize').state === CKEDITOR.TRISTATE_ON);
+
+                    if (isMaximize) {
                         editor.ui.space('contents_wrap').addClass('cke_pasteimage_placeholder');
+
+                    } else {
+                        var placeholderContext = editor.config.pastefileGetPlaceholderContext(editor);
+                        placeholderContext.addClass('cke_pastefile_placeholder');
+
+                        if (data === 'inline') {
+                            editor.ui.space('contents_wrap').addClass('cke_pasteimage_placeholder');
+                        }
                     }
                 }
             });
 
             command.on('state', function() {
                 if (this.state !== CKEDITOR.TRISTATE_ON) {
+                    delete this._.data;
                     var placeholderContext = editor.config.pastefileGetPlaceholderContext(editor);
                     placeholderContext.removeClass('cke_pastefile_placeholder');
                     editor.ui.space('contents_wrap').removeClass('cke_pasteimage_placeholder');
                 }
             });
 
+            command.on('refresh', function() {
+                if (this._.data) {
+                    this.exec(this._.data);
+                }
+            });
+
+            editor.on('dragstart', function() {
+                command.disable();
+            });
+
+            editor.on('dragend', function() {
+                command.enable();
+            });
+
             editor.on('paste', this._onPaste);
             editor.on('destroy', this._onDestroy);
-            editor.on('contentDom', this._onContentDom);
+            editor.on('contentDom', this._dropContextReset);
+            editor.on('maximize', this._dropContextReset);
         },
 
         _onDestroy: function() {
             if (this._pastefileDNDHover) {
                 this._pastefileDNDHover.destroy();
             }
-        },
-
-        _onContentDom: function() {
-            var editable = this.editable();
-            var command = this.getCommand(CMD_PLACEHOLDER);
-
-            var placeholderHide = function() {
-                if (command.state === CKEDITOR.TRISTATE_DISABLED) {
-                    return;
-                }
-
-                command.setState(CKEDITOR.TRISTATE_OFF);
-            };
-
-            var placeholderShow = function(eventName, event) {
-                if (command.state === CKEDITOR.TRISTATE_DISABLED) {
-                    return;
-                }
-
-                command.setState(CKEDITOR.TRISTATE_ON);
-
-                if (event.dataTransfer) {
-                    var data = new ClipboardDataIterator(event.dataTransfer).search();
-
-                    if (data.inline) {
-                        command.exec('inline');
-
-                    } else if (data.file) {
-                        command.exec('file');
-                    }
-                }
-            };
-
-            this.on('dragstart', function() {
-                command.disable();
-            });
-
-            this.on('dragend', function() {
-                command.enable();
-            });
-
-            var dropContext = this.config.pastefileGetDropContext(this);
-
-            this._pastefileDNDHover = new DNDHover(dropContext);
-            this._pastefileDNDHover.on('enter', placeholderShow);
-            this._pastefileDNDHover.on('leave', placeholderHide);
         },
 
         /**
@@ -153,26 +133,28 @@
                 return;
             }
 
-            // CKEDITOR.config.imageUploadUrl
+            /**
+             * @config CKEDITOR.config.imageUploadUrl
+             */
             var uploadUrl = CKEDITOR.fileTools.getUploadUrl(this.config, 'image');
             var clipboardIterator = new ClipboardDataIterator(clipboardData);
 
             clipboardIterator.on('iterator:inline', function(item) {
                 var loader = this.uploadRepository.create(item);
-                loader.on('uploaded', this.plugins.pasteimage._onImageUploaded.bind(this, loader));
+                loader.on('uploaded', this.plugins.pastefile._onImageUploaded.bind(this, loader));
                 loader.loadAndUpload(uploadUrl, this.config.pastefileUploadPostParam);
             }, this);
 
             clipboardIterator.on('iterator:file', function(item) {
                 // вставка файлов обрабатывается только для драга
                 if (eventMethod === 'drop') {
-                    this.fire('pasteimage:pastefile', [ item ]);
+                    this.fire('pastefile:dropfile', [ item ]);
                 }
             }, this);
 
             clipboardIterator.on('iterator:html', function(html) {
                 this.config.pastefileHtmlSanitize(html)
-                    .always(this.plugins.pasteimage._onAlwaysSanitize, this);
+                    .always(this.plugins.pastefile._onAlwaysSanitize, this);
             }, this);
 
             var data = clipboardIterator.iterate();
@@ -205,6 +187,68 @@
          */
         _onAlwaysSanitize: function(html) {
             this.insertHtml(html, 'unfiltered_html');
+        },
+
+        /**
+         * @this {Editor}
+         */
+        _dropContextReset: function() {
+            if (this._pastefileDNDHover) {
+                this._pastefileDNDHover.destroy();
+                delete this._pastefileDNDHover;
+            }
+
+            var isMaximize = (this.getCommand('maximize').state === CKEDITOR.TRISTATE_ON);
+            var dropContext;
+
+            if (isMaximize) {
+                dropContext = this.container.getFirst(function(node) {
+                    return (node.type == CKEDITOR.NODE_ELEMENT && node.hasClass('cke_maximized'));
+				});
+            }
+
+            if (!dropContext) {
+                dropContext = this.config.pastefileGetDropContext(this);
+            }
+
+            this._pastefileDNDHover = new DNDHover(dropContext);
+            this._pastefileDNDHover.on('enter', this.plugins.pastefile._dropContextEnter, this);
+            this._pastefileDNDHover.on('leave', this.plugins.pastefile._dropContextLeave, this);
+        },
+
+        /**
+         * @this {Editor}
+         */
+        _dropContextEnter: function() {
+            var command = this.getCommand(CMD_PLACEHOLDER);
+            if (command.state === CKEDITOR.TRISTATE_DISABLED) {
+                return;
+            }
+
+            command.setState(CKEDITOR.TRISTATE_ON);
+
+            if (event.data.dataTransfer) {
+                var data = new ClipboardDataIterator(event.data.dataTransfer).search();
+
+                if (data.inline) {
+                    command.exec('inline');
+
+                } else if (data.file) {
+                    command.exec('file');
+                }
+            }
+        },
+
+        /**
+         * @this {Editor}
+         */
+        _dropContextLeave: function() {
+            var command = this.getCommand(CMD_PLACEHOLDER);
+            if (command.state === CKEDITOR.TRISTATE_DISABLED) {
+                return;
+            }
+
+            command.setState(CKEDITOR.TRISTATE_OFF);
         }
     });
 
