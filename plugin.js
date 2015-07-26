@@ -215,6 +215,22 @@
             this._pastefileDNDHover = new DNDHover(dropContext, this);
             this._pastefileDNDHover.on('enter', this.plugins.pastefile._dropContextEnter, this);
             this._pastefileDNDHover.on('leave', this.plugins.pastefile._dropContextLeave, this);
+            this._pastefileDNDHover.on('drop', this.plugins.pastefile._dropContextDrop, this);
+        },
+
+        /**
+         * @this {Editor}
+         */
+        _dropContextDrop: function(event) {
+            var command = this.getCommand(CMD_PLACEHOLDER);
+            if (command.state === CKEDITOR.TRISTATE_DISABLED) {
+                return;
+            }
+            
+            var data = event.data.dataTransfer.files;
+            if (data && data.length) {
+                this.fire('pastefile:dropfile', data);
+            }
         },
 
         /**
@@ -243,7 +259,7 @@
         /**
          * @this {Editor}
          */
-        _dropContextLeave: function(event) {
+        _dropContextLeave: function() {
             var command = this.getCommand(CMD_PLACEHOLDER);
             if (command.state === CKEDITOR.TRISTATE_DISABLED) {
                 return;
@@ -311,6 +327,7 @@
 
     DNDHover.prototype._onDropEditor = function(event) {
         var nativeEvent = event.data.$;
+        // drop не всплывает, потому что drop в редакторе обрабатывается в событии paste
         nativeEvent.stopPropagation();
         this._leaveAction(nativeEvent);
     };
