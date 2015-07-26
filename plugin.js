@@ -109,7 +109,7 @@
 
             editor.on('paste', this._onPaste);
             editor.on('destroy', this._onDestroy);
-            editor.on('contentDom', this._dropContextReset);
+            editor.on('uiReady', this._dropContextReset);
             editor.on('maximize', this._dropContextReset);
         },
 
@@ -155,9 +155,13 @@
                 }
             }, this);
 
-            clipboardIterator.on('iterator:html', function(html) {
-                this.config.pastefileHtmlSanitize(html)
-                    .always(this.plugins.pastefile._onAlwaysSanitize, this);
+            clipboardIterator.on('iterator:html', function(event) {
+                this.config.pastefileHtmlSanitize(event.data)
+                    .then(
+                        this.plugins.pastefile._onAlwaysSanitize,
+                        this.plugins.pastefile._onAlwaysSanitize,
+                        this
+                    );
             }, this);
 
             var data = clipboardIterator.iterate();
@@ -393,10 +397,6 @@
 
     ClipboardDataIterator.prototype.REG_BREAK_TYPE = /text\/(rtf|plain)/;
 
-    ClipboardDataIterator.prototype.REG_CHROME_LINUX = /^<meta.*?>/;
-
-    ClipboardDataIterator.prototype.REG_CHROME_WINDOWS = /<!--StartFragment-->([\s\S]*)<!--EndFragment-->/;
-
     ClipboardDataIterator.prototype.REG_CONTENT_IMG = /^<img[^>]*?src="(.*?)".*?>$/;
 
     /**
@@ -445,11 +445,7 @@
     }
 
     ClipboardDataIterator.prototype._findImgFromHtml = function(data, callback) {
-        data = data.replace(this.REG_CHROME_LINUX, '');
-        var result = this.REG_CHROME_WINDOWS.exec(data);
-        if (result && result.length > 1) {
-            data = result[ 1 ];
-        }
+        data = String(data);
 
         var src = (this.REG_CONTENT_IMG.exec(data) || [])[ 1 ];
         if (!src) {
