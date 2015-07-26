@@ -78,7 +78,7 @@
                             placeholderContext.addClass('cke_pastefile_placeholder');
                         }
 
-                        if (data === 'inline' && wrap) {
+                        if (data === 'inline' && wrap && editor.mode === 'wysiwyg') {
                             wrap.addClass('cke_pasteimage_placeholder');
                         }
                     }
@@ -292,7 +292,6 @@
     CKEDITOR.event.implementOn(DNDHover.prototype);
 
     DNDHover.prototype._show = function(event) {
-        event.stopPropagation();
         event.preventDefault();
 
         if (!this._collection.length) {
@@ -303,22 +302,19 @@
     };
 
     DNDHover.prototype._hide = function(event) {
-        var isDrop = (
+        var isDrop = (event.type === 'drop');
+        var isDropAction = (
+            isDrop &&
             !this._stopDropPropagation &&
-            event.type === 'drop' &&
             (this._dropContext === event.target || this._dropContext.contains(event.target))
         );
 
-        this._stopDropPropagation = false;
-
         event.preventDefault();
-        if (isDrop || event.type !== 'drop') {
-            event.stopPropagation();
-        }
 
+        this._stopDropPropagation = false;
         this._leaveAction(event, isDrop);
 
-        if (isDrop) {
+        if (isDropAction) {
             this.fire('drop', event);
         }
     };
@@ -336,7 +332,6 @@
         }
 
         // разрешаем перехват drop
-        event.stopPropagation();
         event.preventDefault();
         event.dataTransfer.dropEffect = 'copy';
     };
