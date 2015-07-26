@@ -292,6 +292,7 @@
         this._onDrop = this._onDrop.bind(this);
         this._onDragover = this._onDragover.bind(this);
 
+        this._editor.on('dragend', this._onDragendEditor, this, null, -1);
         this._editor.on('drop', this._onDropEditor, this, null, -1);
         document.addEventListener('dragover', this._onDragover, false);
         document.addEventListener('dragenter', this._onDragenter, false);
@@ -344,8 +345,13 @@
         event.dataTransfer.dropEffect = 'copy';
     };
 
-    DNDHover.prototype._onDropEditor = function(event) {
+    DNDHover.prototype._onDropEditor = function() {
         this._stopDropPropagation = true;
+        this._leave();
+    };
+
+    DNDHover.prototype._onDragendEditor = function() {
+        this._stopDropPropagation = false;
         this._leave();
     };
 
@@ -358,6 +364,7 @@
 
     DNDHover.prototype.destroy = function() {
         this.removeAllListeners();
+        this._editor.removeListener('dragend', this._onDragendEditor);
         this._editor.removeListener('drop', this._onDropEditor);
         document.removeEventListener('dragover', this._onDragover, false);
         document.removeEventListener('dragenter', this._onDragenter, false);
