@@ -61,13 +61,13 @@
                     var wrap = editor.ui.space('contents_wrap');
 
                     if (isMaximize && wrap) {
-                        wrap.setAttribute('data-cke-pastefile-placeholder', 'Вставьте файл прямо в текст');
+                        wrap.setAttribute('data-cke-pastefile-placeholder', editor.lang.pastefile.inlinePlaceholder);
                         wrap.addClass('cke_pasteimage_placeholder');
 
                     } else if (!isMaximize) {
                         var placeholderContext = editor.config.pastefileGetPlaceholderContext(editor);
                         if (placeholderContext) {
-                            placeholderContext.setAttribute('data-cke-pastefile-placeholder', 'Перетащите файл сюда');
+                            placeholderContext.setAttribute('data-cke-pastefile-placeholder', editor.lang.pastefile.attachPlaceholder);
                             placeholderContext.addClass('cke_pastefile_placeholder');
                         }
 
@@ -108,8 +108,9 @@
             });
 
             editor.on('destroy', this._onDestroy);
-            editor.on('mode', this._dropContextReset);
             editor.on('maximize', this._dropContextReset);
+            editor.on('mode', this._dropContextReset);
+            editor.on('paste', this._onPaste);
         },
 
         _onDestroy: function() {
@@ -121,7 +122,9 @@
         },
 
         /**
-         * @this {Editor}
+         * Обработка drop.
+         * Выполняется отдельно из-за необходимости игнорировать перетаскивание внутри редактора.
+         * @param {CKEDITOR.eventInfo} event
          */
         _onDrop: function(event) {
             var command = this.getCommand(CMD_PLACEHOLDER);
@@ -137,36 +140,66 @@
                 return;
             }
 
-            /**
-             * @config CKEDITOR.config.imageUploadUrl
-             */
-            var uploadUrl = CKEDITOR.fileTools.getUploadUrl(this.config, 'image');
+            var plugin = this.plugins.pastefile;
             var clipboardIterator = new ClipboardDataIterator(nativeEvent.dataTransfer);
-
-            clipboardIterator.on('iterator:inline', function(event) {
-                var loader = this.uploadRepository.create(event.data);
-                loader.on('uploaded', this.plugins.pastefile._onImageUploaded.bind(this, loader));
-                loader.loadAndUpload(uploadUrl, this.config.pastefileUploadPostParam);
-            }, this);
-
-            clipboardIterator.on('iterator:file', function(event) {
-                var data = Array.isArray(event.data) ? event.data : [ event.data ];
-                this.fire('pastefile:dropfile', data);
-            }, this);
-
-            clipboardIterator.on('iterator:html', function(event) {
-                this.config.pastefileHtmlSanitize(event.data)
-                    .then(
-                        this.plugins.pastefile._onAlwaysSanitize,
-                        this.plugins.pastefile._onAlwaysSanitize,
-                        this
-                    );
-            }, this);
+            clipboardIterator.on('iterator:inline', plugin._onIterateInline, this);
+            clipboardIterator.on('iterator:file', plugin._onIterateFile, this);
+            clipboardIterator.on('iterator:html', plugin._onIterateHtml, this);
 
             var data = clipboardIterator.iterate();
             if (data.prevent) {
                 nativeEvent.preventDefault();
             }
+        },
+
+        /**
+         * Обработка вставки.
+         * Обрабатывается только копипаст.
+         * @param {CKEDITOR.eventInfo} event
+         */
+        _onPaste: function(event) {
+            // drop обрабатываем отдельно
+            if (event.data.method !== 'paste') {
+                return;
+            }
+
+            var dataTransfer = event.data.dataTransfer && event.data.dataTransfer.$;
+            if (!dataTransfer) {
+                return;
+            }
+
+            var plugin = this.plugins.pastefile;
+            var clipboardIterator = new ClipboardDataIterator(dataTransfer);
+            clipboardIterator.on('iterator:inline', plugin._onIterateInline, this);
+            clipboardIterator.on('iterator:file', plugin._onIterateFile, this);
+            clipboardIterator.on('iterator:html', plugin._onIterateHtml, this);
+
+            var data = clipboardIterator.iterate();
+            if (data.prevent) {
+                event.cancel();
+            }
+        },
+
+        _onIterateInline: function(event) {
+            // @config CKEDITOR.config.imageUploadUrl
+            var uploadUrl = CKEDITOR.fileTools.getUploadUrl(this.config, 'image');
+            var loader = this.uploadRepository.create(event.data);
+            loader.on('uploaded', this.plugins.pastefile._onImageUploaded.bind(this, loader));
+            loader.loadAndUpload(uploadUrl, this.config.pastefileUploadPostParam);
+        },
+
+        _onIterateFile: function(event) {
+            var data = Array.isArray(event.data) ? event.data : [ event.data ];
+            this.fire('pastefile:dropfile', data);
+        },
+
+        _onIterateHtml: function(event) {
+            this.config.pastefileHtmlSanitize(event.data)
+                .then(
+                    this.plugins.pastefile._onAlwaysSanitize,
+                    this.plugins.pastefile._onAlwaysSanitize,
+                    this
+                );
         },
 
         /**
