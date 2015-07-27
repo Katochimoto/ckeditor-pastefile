@@ -51,6 +51,26 @@
 
     var CMD_PLACEHOLDER = 'pastefilePlaceholder';
 
+    function globalDragDisable() {
+        for (var editorId in CKEDITOR.instances) {
+            var editor = CKEDITOR.instances[ editorId ];
+            var command = editor.getCommand(CMD_PLACEHOLDER);
+            if (command) {
+                command.disable();
+            }
+        }
+    }
+
+    function globalDragEnable() {
+        for (var editorId in CKEDITOR.instances) {
+            var editor = CKEDITOR.instances[ editorId ];
+            var command = editor.getCommand(CMD_PLACEHOLDER);
+            if (command) {
+                command.enable();
+            }
+        }
+    }
+
     CKEDITOR.plugins.add('pastefile', {
         modes: { 'wysiwyg': 1, 'source': 1 },
 
@@ -101,18 +121,12 @@
                 }
             });
 
-            editor.on('dragstart', function() {
-                command.disable();
-            });
-
+            editor.on('dragstart', globalDragDisable);
+            editor.on('dragend', globalDragEnable);
             editor.on('drop', function(event) {
                 this._onDrop.call(editor, event);
-                command.enable();
+                globalDragEnable();
             }, this);
-
-            editor.on('dragend', function() {
-                command.enable();
-            });
 
             editor.on('destroy', this._onDestroy);
             editor.on('maximize', this._dropContextReset);
@@ -319,20 +333,21 @@
     function DNDHover(dropContext, editor) {
         this._dropContext = dropContext || document;
         this._editor = editor;
-        this._stopDropPropagation = false;
         this._isShow = false;
+        this._stopDropPropagation = false;
 
         this._leaveDebounce = _.debounce(this._leave.bind(this), 100);
+        this._onDragend = this._onDragend.bind(this);
         this._onDragenter = this._onDragenter.bind(this);
-        this._onDrop = this._onDrop.bind(this);
         this._onDragover = this._onDragover.bind(this);
+        this._onDrop = this._onDrop.bind(this);
         this._onScroll = _.throttle(this._onScroll.bind(this), 50);
 
-        this._editor.on('dragend', this._onDragendEditor, this, null, -1);
         this._editor.on('drop', this._onDropEditor, this, null, -1);
         this._editor.editable().on('scroll', this._onScroll);
-        window.addEventListener('dragover', this._onDragover, false);
+        window.addEventListener('dragend', this._onDragend, false);
         window.addEventListener('dragenter', this._onDragenter, false);
+        window.addEventListener('dragover', this._onDragover, false);
         window.addEventListener('drop', this._onDrop, false);
         window.addEventListener('scroll', this._onScroll, false);
     }
@@ -393,7 +408,7 @@
         this._leave();
     };
 
-    DNDHover.prototype._onDragendEditor = function() {
+    DNDHover.prototype._onDragend = function() {
         this._stopDropPropagation = false;
         this._leave();
     };
@@ -412,11 +427,10 @@
         }
 
         this.removeAllListeners();
-        this._editor.removeListener('dragend', this._onDragendEditor);
         this._editor.removeListener('drop', this._onDropEditor);
-
-        window.removeEventListener('dragover', this._onDragover, false);
+        window.removeEventListener('dragend', this._onDragend, false);
         window.removeEventListener('dragenter', this._onDragenter, false);
+        window.removeEventListener('dragover', this._onDragover, false);
         window.removeEventListener('drop', this._onDrop, false);
         window.removeEventListener('scroll', this._onScroll, false);
 
