@@ -354,17 +354,22 @@
 
     CKEDITOR.event.implementOn(DNDHover.prototype);
 
-    DNDHover.prototype._onScroll = function() {
-        if (this._isShow) {
-            this._leaveDebounce();
-        }
-    };
-
     DNDHover.prototype._onDragenter = function(event) {
         if (!this._isShow) {
             this._isShow = true;
             this.fire('enter', event);
         }
+    };
+
+    /**
+     * Drop в редактор наступает раньше drop на windows.
+     * И действие drop на windows нужно обрабатывать только если до этого не наступил drop в редакторе.
+     * Drop редактор сам обрабатывает.
+     * Иначе будет двойная обработка.
+     */
+    DNDHover.prototype._onDropEditor = function() {
+        this._stopDropPropagation = true;
+        this._leave();
     };
 
     DNDHover.prototype._onDrop = function(event) {
@@ -403,14 +408,15 @@
         event.dataTransfer.dropEffect = 'copy';
     };
 
-    DNDHover.prototype._onDropEditor = function() {
-        this._stopDropPropagation = true;
-        this._leave();
-    };
-
     DNDHover.prototype._onDragend = function() {
         this._stopDropPropagation = false;
         this._leave();
+    };
+
+    DNDHover.prototype._onScroll = function() {
+        if (this._isShow) {
+            this._leaveDebounce();
+        }
     };
 
     DNDHover.prototype._leave = function() {
