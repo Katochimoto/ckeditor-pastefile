@@ -388,7 +388,7 @@
 
         var isDropAction = (
             !this._stopDropPropagation &&
-            (this._dropContext === event.target || this._dropContext.contains(event.target))
+            (this._dropContext === event.target || (this._dropContext.compareDocumentPosition(event.target) & Node.DOCUMENT_POSITION_CONTAINED_BY))
         );
 
         this._stopDropPropagation = false;
