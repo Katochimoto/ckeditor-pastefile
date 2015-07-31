@@ -221,7 +221,6 @@
             var clipboardIterator = new ClipboardDataIterator(nativeEvent.dataTransfer);
             clipboardIterator.on('iterator:inline', plugin._onIterateInline, this);
             clipboardIterator.on('iterator:file', plugin._onIterateFile, this);
-            clipboardIterator.on('iterator:html', plugin._onIterateHtml, this);
 
             var data = clipboardIterator.iterate();
             if (data.prevent) {
@@ -249,7 +248,6 @@
             var clipboardIterator = new ClipboardDataIterator(dataTransfer);
             clipboardIterator.on('iterator:inline', plugin._onIterateInline, this);
             clipboardIterator.on('iterator:file', plugin._onIterateFile, this);
-            clipboardIterator.on('iterator:html', plugin._onIterateHtml, this);
 
             var data = clipboardIterator.iterate();
             if (data.prevent) {
@@ -288,6 +286,7 @@
                 delete cache[ attributes[ ATTR_PASTE_INLINE ] ];
 
                 node.removeAttribute(ATTR_PASTE_INLINE);
+                node.setAttribute(ATTR_PASTE_IGNORE, '1');
 
                 if (attributes.style) {
                     node.setAttribute('style', attributes.style);
@@ -329,15 +328,6 @@
             this.fire('pastefile:dropfile', data);
         },
 
-        _onIterateHtml: function(event) {
-            this.config.pastefileHtmlSanitize(event.data)
-                .then(
-                    this.plugins.pastefile._onAlwaysSanitize,
-                    this.plugins.pastefile._onAlwaysSanitize,
-                    this
-                );
-        },
-
         /**
          * @this {Editor}
          * @throw Error
@@ -356,13 +346,6 @@
 
             attrs[ ATTR_PASTE_IGNORE ] = '1';
             element.setAttributes(attrs);
-        },
-
-        /**
-         * @this {Editor}
-         */
-        _onAlwaysSanitize: function(html) {
-            this.insertHtml(html, 'unfiltered_html');
         },
 
         /**
@@ -595,8 +578,6 @@
 
     ClipboardDataIterator.prototype.REG_BREAK_TYPE = /text\/(rtf|plain)/;
 
-    ClipboardDataIterator.prototype.REG_CONTENT_IMG = /^<img[^>]*?src="(.*?)".*?>$/;
-
     /**
      * Поиск файлов/картинок
      * @returns {{ inline: boolean, file: boolean }}
@@ -630,39 +611,6 @@
 
         delete data.files;
         return data;
-    };
-
-    ClipboardDataIterator.prototype._createImgHtml = function(attributes) {
-        var writer = new CKEDITOR.htmlWriter();
-        writer.openTag('img');
-        for (var attrName in attributes) {
-            writer.attribute(attrName, attributes[ attrName ]);
-        }
-        writer.attribute(ATTR_PASTE_IGNORE, '1');
-        writer.openTagClose('img', true);
-        return writer.getHtml();
-    }
-
-    ClipboardDataIterator.prototype._findImgFromHtml = function(data, callback) {
-        data = String(data);
-
-        var src = (this.REG_CONTENT_IMG.exec(data) || [])[ 1 ];
-        if (!src) {
-            return false;
-        }
-
-        var that = this;
-        var parser = new CKEDITOR.htmlParser();
-        parser.onTagOpen = function(tagName, attributes) {
-            if (tagName !== 'img' || attributes[ 'data-cke-saved-src' ] || !attributes[ 'src' ]) {
-                return;
-            }
-
-            callback.call(that, that._createImgHtml(attributes));
-        };
-
-        parser.parse(data);
-        return true;
     };
 
     ClipboardDataIterator.prototype._iteratorsSearch = {
@@ -742,28 +690,6 @@
         },
 
         'types': function(data, item) {
-            if (item === 'public.url') {
-                data.prevent = true;
-
-                this.fire('iterator:html', this._createImgHtml({
-                    'src': this._data.getData(item)
-                }));
-
-                return true;
-            }
-
-            if (item === 'text/html') {
-                var html = this._data.getData(item);
-                var isImgOnly = this._findImgFromHtml(html, function(imgHtml) {
-                    this.fire('iterator:html', imgHtml);
-                });
-
-                if (isImgOnly) {
-                    data.prevent = true;
-                    return true;
-                }
-            }
-
             return false;
         }
     };
