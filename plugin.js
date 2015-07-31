@@ -259,9 +259,12 @@
 
         _onAfterPaste: function() {
             var cache = {};
-            var nodes = this.editable().find('img[' + ATTR_PASTE_INLINE + ']');
+            var nodes = this.editable().find('[' + ATTR_PASTE_INLINE + ']');
             var html = Array.prototype.reduce.call(nodes.$, function(previousValue, node) {
                 cache[ node.getAttribute(ATTR_PASTE_INLINE) ] = node;
+                // TODO если сделаем замену ссылок в background
+                // то тут надо проверять на наличие детей
+                // и санитайзить клон без детей
                 return previousValue + node.outerHTML;
             }, '');
 
