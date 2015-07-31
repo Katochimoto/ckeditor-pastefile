@@ -62,6 +62,10 @@
 
     var ATTR_PASTE_IGNORE = 'data-cke-pastefile-ignore';
     var ATTR_PASTE_INLINE = 'data-cke-pastefile-inline';
+    var ATTR_PLACEHOLDER = 'data-cke-pastefile-placeholder';
+
+    var CLASS_PLACEHOLDER_INLINE = 'cke_pasteimage_placeholder';
+    var CLASS_PLACEHOLDER_ATTACH = 'cke_pastefile_placeholder';
 
     var REG_PASTE_SRC = /^http(s?):\/\//;
 
@@ -108,23 +112,23 @@
                             editor.lang.pastefile.inlinePlaceholder :
                             editor.lang.pastefile.attachPlaceholder;
 
-                        wrap.setAttribute('data-cke-pastefile-placeholder', text);
-                        wrap.addClass('cke_pasteimage_placeholder');
+                        wrap.setAttribute(ATTR_PLACEHOLDER, text);
+                        wrap.addClass(CLASS_PLACEHOLDER_INLINE);
 
                     } else if (!isMaximize) {
                         text = editor.lang.pastefile.attachPlaceholder;
                         var placeholderContext = editor.config.pastefileGetPlaceholderContext(editor);
 
                         if (isInline && wrap) {
-                            wrap.setAttribute('data-cke-pastefile-placeholder', text);
-                            wrap.addClass('cke_pasteimage_placeholder');
+                            wrap.setAttribute(ATTR_PLACEHOLDER, text);
+                            wrap.addClass(CLASS_PLACEHOLDER_INLINE);
 
                         } else if (placeholderContext) {
-                            placeholderContext.setAttribute('data-cke-pastefile-placeholder', text);
+                            placeholderContext.setAttribute(ATTR_PLACEHOLDER, text);
                         }
 
                         if (placeholderContext) {
-                            placeholderContext.addClass('cke_pastefile_placeholder');
+                            placeholderContext.addClass(CLASS_PLACEHOLDER_ATTACH);
                         }
                     }
                 }
@@ -134,14 +138,14 @@
                 if (this.state !== CKEDITOR.TRISTATE_ON) {
                     var placeholderContext = editor.config.pastefileGetPlaceholderContext(editor);
                     if (placeholderContext) {
-                        placeholderContext.removeClass('cke_pastefile_placeholder');
-                        placeholderContext.removeAttribute('data-cke-pastefile-placeholder');
+                        placeholderContext.removeClass(CLASS_PLACEHOLDER_ATTACH);
+                        placeholderContext.removeAttribute(ATTR_PLACEHOLDER);
                     }
 
                     var wrap = editor.ui.space('contents_wrap');
                     if (wrap) {
-                        wrap.removeClass('cke_pasteimage_placeholder');
-                        wrap.removeAttribute('data-cke-pastefile-placeholder');
+                        wrap.removeClass(CLASS_PLACEHOLDER_INLINE);
+                        wrap.removeAttribute(ATTR_PLACEHOLDER);
                     }
                 }
             });
