@@ -11,6 +11,15 @@
     CKEDITOR.config.pastefileUploadPostParam = 'attachment';
 
     /**
+     * Проверка необходимости санитайза узла при вставке
+     * @param {CKEDITOR.htmlParser.element} element
+     * @returns {boolean}
+     */
+    CKEDITOR.config.pastefileCheckPasteSanitize = function(element) {
+        return true;
+    };
+
+    /**
      * Нода, на которую можно дропать
      * @param {Editor} editor
      * @returns {HTMLElement}
@@ -50,6 +59,11 @@
     };
 
     var CMD_PLACEHOLDER = 'pastefilePlaceholder';
+
+    var ATTR_PASTE_IGNORE = 'data-cke-pastefile-ignore';
+    var ATTR_PASTE_INLINE = 'data-cke-pastefile-inline';
+
+    var REG_PASTE_SRC = /^http(s?):\/\//;
 
     function globalDragDisable() {
         for (var editorId in CKEDITOR.instances) {
@@ -132,6 +146,32 @@
                 }
             });
 
+            /*
+            CKEDITOR.filter.transformationsTools.test = function(element) {
+                element.attributes[ 'data-cke-pastefile-inline' ] = String(CKEDITOR.tools.getNextNumber());
+            };
+            */
+
+            editor.pasteFilter.addTransformations([
+                [
+                    {
+                        'element': 'img',
+                        'left': function(element) {
+                            return (
+                                !element.attributes[ ATTR_PASTE_INLINE ] &&
+                                !element.attributes[ ATTR_PASTE_IGNORE ] &&
+                                element.attributes[ 'src' ] &&
+                                REG_PASTE_SRC.test(element.attributes[ 'src' ]) &&
+                                editor.config.pastefileCheckPasteSanitize(element)
+                            );
+                        },
+                        'right': function(element) {
+                            element.attributes[ ATTR_PASTE_INLINE ] = String(CKEDITOR.tools.getNextNumber());
+                        }
+                    }
+                ]
+            ]);
+
             editor.on('dragstart', globalDragDisable);
             editor.on('dragend', globalDragEnable);
             editor.on('drop', function(event) {
@@ -143,6 +183,7 @@
             editor.on('maximize', this._dropContextReset);
             editor.on('mode', this._dropContextReset);
             editor.on('paste', this._onPaste);
+            editor.on('afterPaste', this._onAfterPaste);
         },
 
         _onDestroy: function() {
@@ -212,6 +253,62 @@
             }
         },
 
+        _onAfterPaste: function() {
+            var cache = {};
+            var nodes = this.editable().find('img[' + ATTR_PASTE_INLINE + ']');
+            var html = Array.prototype.reduce.call(nodes.$, function(previousValue, node) {
+                cache[ node.getAttribute(ATTR_PASTE_INLINE) ] = node;
+                return previousValue + node.outerHTML;
+            }, '');
+
+            if (html) {
+                this.config.pastefileHtmlSanitize(html).then(
+                    this.plugins.pastefile._onAfterPasteSanitizeSuccess.bind(this, cache),
+                    this.plugins.pastefile._onAfterPasteSanitizeError.bind(this, cache)
+                );
+            }
+        },
+
+        _onAfterPasteSanitizeSuccess: function(cache, sanitizeHtml) {
+            var parser = new CKEDITOR.htmlParser();
+
+            parser.onTagOpen = function(tagName, attributes) {
+                var node = cache[ attributes[ ATTR_PASTE_INLINE ] ];
+                if (!node) {
+                    return;
+                }
+
+                delete cache[ attributes[ ATTR_PASTE_INLINE ] ];
+
+                node.removeAttribute(ATTR_PASTE_INLINE);
+
+                if (attributes.style) {
+                    node.setAttribute('style', attributes.style);
+                }
+
+                if (attributes.src) {
+                    node.setAttribute('src', attributes.src);
+                    node.setAttribute('data-cke-saved-src', attributes.src);
+                }
+            };
+
+            parser.parse(sanitizeHtml);
+
+            for (var id in cache) {
+                cache[ id ].removeAttribute(ATTR_PASTE_INLINE);
+            }
+
+            this.fire('updateSnapshot');
+        },
+
+        _onAfterPasteSanitizeError: function(cache) {
+            for (var id in cache) {
+                cache[ id ].removeAttribute(ATTR_PASTE_INLINE);
+            }
+
+            this.fire('updateSnapshot');
+        },
+
         _onIterateInline: function(event) {
             // @config CKEDITOR.config.imageUploadUrl
             var uploadUrl = CKEDITOR.fileTools.getUploadUrl(this.config, 'image');
@@ -246,10 +343,11 @@
 
             var element = new CKEDITOR.dom.element('img');
 
-            element.on('load', function() {
+            element.once('load', function() {
                 this.insertHtml(element.getOuterHtml(), 'unfiltered_html');
             }, this);
 
+            attrs[ ATTR_PASTE_IGNORE ] = '1';
             element.setAttributes(attrs);
         },
 
@@ -533,6 +631,7 @@
         for (var attrName in attributes) {
             writer.attribute(attrName, attributes[ attrName ]);
         }
+        writer.attribute(ATTR_PASTE_IGNORE, '1');
         writer.openTagClose('img', true);
         return writer.getHtml();
     }
