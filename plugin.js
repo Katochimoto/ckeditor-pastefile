@@ -168,6 +168,7 @@
             };
             */
 
+            var editor = this;
             this.pasteFilter.addTransformations([
                 [
                     {
