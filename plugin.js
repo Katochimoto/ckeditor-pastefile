@@ -59,6 +59,7 @@
     };
 
     var CMD_PLACEHOLDER = 'pastefilePlaceholder';
+    var CMD_LOADER = 'pastefileLoader';
 
     var ATTR_PASTE_IGNORE = 'data-cke-pastefile-ignore';
     var ATTR_PASTE_INLINE = 'data-cke-pastefile-inline';
@@ -66,6 +67,7 @@
 
     var CLASS_PLACEHOLDER_INLINE = 'cke_pasteimage_placeholder';
     var CLASS_PLACEHOLDER_ATTACH = 'cke_pastefile_placeholder';
+    var CLASS_LOADER = 'cke_pastefile_loader';
 
     var REG_PASTE_SRC = /^http(s?):\/\//;
 
@@ -93,7 +95,24 @@
         modes: { 'wysiwyg': 1, 'source': 1 },
 
         init: function(editor) {
-            var command = editor.addCommand(CMD_PLACEHOLDER, {
+            var cmdLoader = editor.addCommand(CMD_LOADER, {
+                'modes': { 'wysiwyg': 1 },
+                'editorFocus': false,
+                'canUndo': false
+            });
+
+            cmdLoader.on('state', function() {
+                var wrap = editor.ui.space('contents_wrap');
+
+                if (this.state === CKEDITOR.TRISTATE_ON) {
+                    wrap.addClass(CLASS_LOADER);
+
+                } else {
+                    wrap.removeClass(CLASS_LOADER);
+                }
+            });
+
+            var cmdPlaceholder = editor.addCommand(CMD_PLACEHOLDER, {
                 'modes': { 'wysiwyg': 1, 'source': 1 },
                 'editorFocus': false,
                 'canUndo': false,
@@ -134,7 +153,7 @@
                 }
             });
 
-            command.on('state', function() {
+            cmdPlaceholder.on('state', function() {
                 if (this.state !== CKEDITOR.TRISTATE_ON) {
                     var placeholderContext = editor.config.pastefileGetPlaceholderContext(editor);
                     if (placeholderContext) {
@@ -271,10 +290,15 @@
             }, '');
 
             if (html) {
+                var cmdLoader = this.getCommand(CMD_LOADER);
+                cmdLoader.setState(CKEDITOR.TRISTATE_ON);
+
                 this.config.pastefileHtmlSanitize(html).then(
                     this.plugins.pastefile._onAfterPasteSanitizeSuccess.bind(this, cache),
                     this.plugins.pastefile._onAfterPasteSanitizeError.bind(this, cache)
-                );
+                ).always(function() {
+                    cmdLoader.setState(CKEDITOR.TRISTATE_OFF);
+                });
             }
         },
 
@@ -320,10 +344,21 @@
         },
 
         _onIterateInline: function(event) {
+            var cmdLoader = this.getCommand(CMD_LOADER);
+            cmdLoader.setState(CKEDITOR.TRISTATE_ON);
+
             // @config CKEDITOR.config.imageUploadUrl
             var uploadUrl = CKEDITOR.fileTools.getUploadUrl(this.config, 'image');
             var loader = this.uploadRepository.create(event.data);
+
             loader.on('uploaded', this.plugins.pastefile._onImageUploaded.bind(this, loader));
+
+            [ 'uploaded', 'abort', 'error' ].forEach(function(cbName) {
+                loader.on(cbName, function() {
+                    cmdLoader.setState(CKEDITOR.TRISTATE_OFF);
+                });
+            });
+
             loader.loadAndUpload(uploadUrl, this.config.pastefileUploadPostParam);
         },
 
