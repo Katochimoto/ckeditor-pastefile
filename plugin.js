@@ -396,10 +396,6 @@
                 delete this._pastefileDNDHover;
             }
 
-            if (this.status !== 'ready') {
-                return;
-            }
-
             var isMaximize = (this.getCommand('maximize').state === CKEDITOR.TRISTATE_ON);
             var dropContext;
 
