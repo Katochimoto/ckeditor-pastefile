@@ -672,10 +672,6 @@
         },
 
         'items': function(data, item) {
-            if (CKEDITOR.fileTools.isTypeSupported(item, this.REG_BREAK_TYPE)) {
-                return true;
-            }
-
             if (CKEDITOR.fileTools.isTypeSupported(item, this.REG_IMAGE_TYPE)) {
                 data.inline = true;
 
