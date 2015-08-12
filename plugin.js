@@ -192,6 +192,11 @@
             */
 
             var editor = this;
+
+            if (!this.pasteFilter) {
+                this.pasteFilter = new CKEDITOR.filter(this);
+            }
+
             this.pasteFilter.addTransformations([
                 [
                     {
