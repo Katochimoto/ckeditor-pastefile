@@ -121,7 +121,8 @@
                         return;
                     }
 
-                    var isMaximize = (editor.getCommand('maximize').state === CKEDITOR.TRISTATE_ON);
+                    var cmdMaximize = editor.getCommand('maximize');
+                    var isMaximize = (cmdMaximize && cmdMaximize.state === CKEDITOR.TRISTATE_ON);
                     var isInline = (data === 'inline' && editor.mode === 'wysiwyg');
                     var wrap = editor.ui.space('contents_wrap');
                     var text;
@@ -401,7 +402,8 @@
                 delete this._pastefileDNDHover;
             }
 
-            var isMaximize = (this.getCommand('maximize').state === CKEDITOR.TRISTATE_ON);
+            var cmdMaximize = this.getCommand('maximize');
+            var isMaximize = (cmdMaximize && cmdMaximize.state === CKEDITOR.TRISTATE_ON);
             var dropContext;
 
             if (isMaximize) {
