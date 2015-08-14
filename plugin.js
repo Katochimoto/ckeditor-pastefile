@@ -477,6 +477,7 @@
         this._editor = editor;
         this._isShow = false;
         this._stopDropPropagation = false;
+        this._dragPrevented = false;
 
         for (var methodName in this.METHODS_BINDS) {
             this[ methodName ] = this[ methodName ].bind(this);
@@ -504,6 +505,7 @@
         '_onDragend': 1,
         '_onDragenter': 1,
         '_onDragover': 1,
+        '_onDragstart': 1,
         '_onDrop': 1,
         '_onScroll': 1
     };
@@ -512,14 +514,19 @@
         'dragend': '_onDragend',
         'dragenter': '_onDragenter',
         'dragover': '_onDragover',
+        'dragstart': '_onDragstart',
         'drop': '_onDrop',
         'scroll': '_onScrollThrottle'
+    };
+
+    DNDHover.prototype._onDragstart = function(event) {
+        this._dragPrevented = (event.target.tagName !== 'IMG');
     };
 
     DNDHover.prototype._onDragenter = function(event) {
         event.preventDefault();
 
-        if (!this._isShow) {
+        if (!this._isShow && !this._dragPrevented) {
             this._isShow = true;
             this.fire('enter', event);
         }
@@ -584,6 +591,7 @@
     };
 
     DNDHover.prototype._leave = function() {
+        this._dragPrevented = false;
         if (this._isShow) {
             this._isShow = false;
             this.fire('leave');
