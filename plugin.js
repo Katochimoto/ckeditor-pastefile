@@ -493,7 +493,7 @@
         }
 
         for (var eventName in this.BASE_DRAG_EVENTS) {
-            document.addEventListener(eventName, this[ this.BASE_DRAG_BINDS[ eventName ] ], false);
+            document.addEventListener(eventName, this[ this.BASE_DRAG_EVENTS[ eventName ] ], false);
         }
     }
 
