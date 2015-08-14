@@ -600,7 +600,7 @@
         this._editor.removeListener('drop', this._onDropEditor);
 
         for (var eventName in this.BASE_DRAG_EVENTS) {
-            document.removeEventListener(eventName, this[ this.BASE_DRAG_BINDS[ eventName ] ], false);
+            document.removeEventListener(eventName, this[ this.BASE_DRAG_EVENTS[ eventName ] ], false);
         }
 
         this._dropContext = null;
