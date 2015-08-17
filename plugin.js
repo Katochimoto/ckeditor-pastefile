@@ -524,8 +524,6 @@
     };
 
     DNDHover.prototype._onDragenter = function(event) {
-        event.preventDefault();
-
         if (!this._isShow && !this._dragPrevented) {
             this._isShow = true;
             this.fire('enter', event);
