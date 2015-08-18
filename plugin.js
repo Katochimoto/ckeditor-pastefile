@@ -550,6 +550,7 @@
         );
 
         this._stopDropPropagation = false;
+        this._dragPrevented = false;
 
         this._leave();
 
@@ -579,6 +580,7 @@
 
     DNDHover.prototype._onDragend = function() {
         this._stopDropPropagation = false;
+        this._dragPrevented = false;
         this._leave();
     };
 
@@ -589,7 +591,6 @@
     };
 
     DNDHover.prototype._leave = function() {
-        this._dragPrevented = false;
         if (this._isShow) {
             this._isShow = false;
             this.fire('leave');
