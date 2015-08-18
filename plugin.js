@@ -477,7 +477,6 @@
         this._editor = editor;
         this._isShow = false;
         this._stopDropPropagation = false;
-        this._dragPrevented = false;
 
         for (var methodName in this.METHODS_BINDS) {
             this[ methodName ] = this[ methodName ].bind(this);
@@ -519,12 +518,44 @@
         'scroll': '_onScrollThrottle'
     };
 
+    DNDHover.prototype._iteratorsDragPrevented = {
+        'items': function(item) {
+            return (item.type === 'application/x-drag-prevented');
+        },
+
+        'types': function(item) {
+            return (item === 'application/x-drag-prevented');
+        }
+    };
+
+    DNDHover.prototype._isDragPrevented = function(event) {
+        var items;
+        var callback;
+
+        if (event.dataTransfer.items) {
+            items = event.dataTransfer.items;
+            callback = this._iteratorsDragPrevented.items;
+
+        } else if (event.dataTransfer.types) {
+            items = event.dataTransfer.types;
+            callback = this._iteratorsDragPrevented.types;
+        }
+
+        if (!items) {
+            return false;
+        }
+
+        return Array.prototype.some.call(items, callback);
+    };
+
     DNDHover.prototype._onDragstart = function(event) {
-        this._dragPrevented = (event.target.tagName !== 'IMG');
+        if (event.target.tagName !== 'IMG') {
+            event.dataTransfer.setData('application/x-drag-prevented', '1');
+        }
     };
 
     DNDHover.prototype._onDragenter = function(event) {
-        if (!this._isShow && !this._dragPrevented) {
+        if (!this._isShow && !this._isDragPrevented(event)) {
             this._isShow = true;
             this.fire('enter', event);
         }
@@ -550,7 +581,6 @@
         );
 
         this._stopDropPropagation = false;
-        this._dragPrevented = false;
 
         this._leave();
 
@@ -580,7 +610,6 @@
 
     DNDHover.prototype._onDragend = function() {
         this._stopDropPropagation = false;
-        this._dragPrevented = false;
         this._leave();
     };
 
