@@ -477,6 +477,10 @@
         this._editor = editor;
         this._isShow = false;
         this._stopDropPropagation = false;
+        // при перетаскивании из другой вкладки почты метка так же будет в данных
+        // учитываем метку только для текущей вкладки
+        // для этого название метки создается уникальным
+        this._labelPrevented = 'application/x-drag-prevented-' + String(Math.floor(Math.random() * 100000));
 
         for (var methodName in this.METHODS_BINDS) {
             this[ methodName ] = this[ methodName ].bind(this);
@@ -520,11 +524,11 @@
 
     DNDHover.prototype._iteratorsDragPrevented = {
         'items': function(item) {
-            return (item.type === 'application/x-drag-prevented');
+            return (item.type === this._labelPrevented);
         },
 
         'types': function(item) {
-            return (item === 'application/x-drag-prevented');
+            return (item === this._labelPrevented);
         }
     };
 
@@ -545,12 +549,12 @@
             return false;
         }
 
-        return Array.prototype.some.call(items, callback);
+        return Array.prototype.some.call(items, callback, this);
     };
 
     DNDHover.prototype._onDragstart = function(event) {
         if (event.target.tagName !== 'IMG') {
-            event.dataTransfer.setData('application/x-drag-prevented', '1');
+            event.dataTransfer.setData(this._labelPrevented, '1');
         }
     };
 
