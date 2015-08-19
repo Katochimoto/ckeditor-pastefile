@@ -680,8 +680,6 @@
 
     ClipboardDataIterator.prototype.REG_BREAK_TYPE = /text\/(rtf|plain)/;
 
-    ClipboardDataIterator.prototype.REG_TEXT_TYPE = /text\/(rtf|plain|html)/;
-
     /**
      * Поиск файлов/картинок
      * @returns {{ inline: boolean, file: boolean }}
@@ -735,7 +733,7 @@
             if (CKEDITOR.fileTools.isTypeSupported(item, this.REG_IMAGE_TYPE)) {
                 data.inline = true;
 
-            } else if (!CKEDITOR.fileTools.isTypeSupported(item, this.REG_TEXT_TYPE)) {
+            } else if (item.kind === 'file') {
                 data.file = true;
             }
 
