@@ -222,11 +222,6 @@
             }
 
             this.getCommand(CMD_PLACEHOLDER).disable();
-
-            var selection = this.getSelection();
-            if (selection) {
-                selection.removeAllRanges();
-            }
         },
 
         /**
