@@ -175,6 +175,7 @@
             }, this);
 
             editor.on('afterPaste', this._onAfterPaste);
+            editor.on('beforeDestroy', this._onBeforeDestroy);
             editor.on('destroy', this._onDestroy);
             editor.on('instanceReady', this._onInstanceReady);
             editor.on('maximize', this._dropContextReset);
@@ -214,6 +215,13 @@
                     }
                 ]
             ]);
+        },
+
+        _onBeforeDestroy: function() {
+            var selection = this.getSelection();
+            if (selection) {
+                selection.removeAllRanges();
+            }
         },
 
         _onDestroy: function() {
