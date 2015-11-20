@@ -8,6 +8,22 @@
     });
     */
 
+    /**
+     * Игнорирование бросания файлов
+     * @type {Boolean}
+     */
+    CKEDITOR.config.pastefileDisableFile = false;
+
+    /**
+     * Игнорирование бросания инлайновых файлов
+     * @type {Boolean}
+     */
+    CKEDITOR.config.pastefileDisableInline = false;
+
+    /**
+     * Название post параметра для загрузки аттача
+     * @type {String}
+     */
     CKEDITOR.config.pastefileUploadPostParam = 'attachment';
 
     /**
