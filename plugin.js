@@ -160,7 +160,7 @@
                             placeholderContext.setAttribute(ATTR_PLACEHOLDER, text);
                         }
 
-                        if (placeholderContext) {
+                        if (placeholderContext && !editor.config.pastefileDisableFile) {
                             placeholderContext.addClass(CLASS_PLACEHOLDER_ATTACH);
                         }
                     }
@@ -390,6 +390,10 @@
         },
 
         _onIterateFile: function(event) {
+            if (this.config.pastefileDisableFile) {
+                return;
+            }
+
             var data = Array.isArray(event.data) ? event.data : [ event.data ];
             this.fire('pastefile:dropfile', data);
         },
