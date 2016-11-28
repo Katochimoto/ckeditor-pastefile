@@ -74,8 +74,8 @@
         });
     };
 
-    var ATTR_PASTE_IGNORE = 'data-cke-pastefile-ignore';
-    var ATTR_PASTE_INLINE = 'data-cke-pastefile-inline';
+    var ATTR_PASTE_IGNORE = 'datackepastefileignore';
+    var ATTR_PASTE_INLINE = 'datackepastefileinline';
     var ATTR_PLACEHOLDER = 'data-cke-pastefile-placeholder';
     var CLASS_LOADER = 'cke_pastefile_loader';
     var CLASS_PLACEHOLDER_ATTACH = 'cke_pastefile_placeholder';
