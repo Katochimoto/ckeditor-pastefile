@@ -83,6 +83,7 @@
     var CMD_LOADER = 'pastefileLoader';
     var CMD_PLACEHOLDER = 'pastefilePlaceholder';
     var REG_PASTE_SRC = /^http(s?):\/\//;
+    var REG_IMAGE_TYPE = /image\/(jpeg|pjpeg|png|gif|bmp)/;
 
     function globalDragDisable() {
         for (var editorId in CKEDITOR.instances) {
@@ -268,7 +269,7 @@
             }
 
             var plugin = this.plugins.pastefile;
-            var clipboardIterator = new ClipboardDataIterator(nativeEvent.dataTransfer);
+            var clipboardIterator = new ClipboardDataIterator(nativeEvent.dataTransfer, this.config.pastefileInlineMaxSize);
             clipboardIterator.on('iterator:inline', plugin._onIterateInline, this);
             clipboardIterator.on('iterator:file', plugin._onIterateFile, this);
 
@@ -295,7 +296,7 @@
             }
 
             var plugin = this.plugins.pastefile;
-            var clipboardIterator = new ClipboardDataIterator(dataTransfer);
+            var clipboardIterator = new ClipboardDataIterator(dataTransfer, this.config.pastefileInlineMaxSize);
             clipboardIterator.on('iterator:inline', plugin._onIterateInline, this);
             clipboardIterator.on('iterator:file', plugin._onIterateFile, this);
 
@@ -378,8 +379,12 @@
             var uploadUrl = CKEDITOR.fileTools.getUploadUrl(this.config, 'image');
             var loader = this.uploadRepository.create(event.data);
 
-            loader.on('uploaded', this.plugins.pastefile._onImageUploaded.bind(this, loader));
+            var that = this;
 
+            loader.on('uploaded', this.plugins.pastefile._onImageUploaded.bind(this, loader));
+            loader.on('error', function(event) {
+                that.fire('pastefile:loadfailed', event);
+            });
             [ 'uploaded', 'abort', 'error' ].forEach(function(cbName) {
                 loader.on(cbName, function() {
                     cmdLoader.setState(CKEDITOR.TRISTATE_OFF);
@@ -389,13 +394,29 @@
             loader.loadAndUpload(uploadUrl, this.config.pastefileUploadPostParam);
         },
 
+        _hasImage: function(data) {
+            if (!data || !Array.isArray(data)) {
+                return false;
+            }
+
+            return data.some(function(item) {
+                return CKEDITOR.fileTools.isTypeSupported(item, REG_IMAGE_TYPE);
+            })
+        },
+
         _onIterateFile: function(event) {
             if (this.config.pastefileDisableFile) {
                 return;
             }
 
             var data = Array.isArray(event.data) ? event.data : [ event.data ];
-            this.fire('pastefile:dropfile', data);
+
+            var plugin = this.plugins.pastefile;
+            var info = {
+                hasImage: plugin._hasImage(data)
+            };
+
+            this.fire('pastefile:dropfile', { files: data, info: info });
         },
 
         /**
@@ -457,9 +478,17 @@
                 return;
             }
 
+            var plugin = this.plugins.pastefile;
+            var info;
+
             var data = event.data.dataTransfer.files;
             if (data && data.length) {
-                this.fire('pastefile:dropfile', data);
+                data = Array.isArray(data) ? data : Array.prototype.slice.call(data);
+                info = {
+                    hasImage: plugin._hasImage(data)
+                };
+
+                this.fire('pastefile:dropfile', { files: data, info: info });
             }
         },
 
@@ -475,7 +504,7 @@
             command.setState(CKEDITOR.TRISTATE_ON);
 
             if (event.data.dataTransfer) {
-                var data = new ClipboardDataIterator(event.data.dataTransfer).search();
+                var data = new ClipboardDataIterator(event.data.dataTransfer, this.config.pastefileInlineMaxSize).search();
 
                 if (data.inline) {
                     command.exec('inline');
@@ -673,11 +702,13 @@
     };
 
 
-    function ClipboardDataIterator(data) {
+    function ClipboardDataIterator(data, maxInlineSize) {
         this._data = data;
         this._items = [];
         this._iterator = _.noop;
         this._iteratorSearch = _.noop;
+
+        this._maxSize = maxInlineSize || this.DEFAULT_MAX_SIZE;
 
         var type;
 
@@ -702,9 +733,9 @@
 
     CKEDITOR.event.implementOn(ClipboardDataIterator.prototype);
 
-    ClipboardDataIterator.prototype.MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    ClipboardDataIterator.prototype.DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
-    ClipboardDataIterator.prototype.REG_IMAGE_TYPE = /image\/(jpeg|pjpeg|png|gif|bmp)/;
+    ClipboardDataIterator.prototype.REG_IMAGE_TYPE = REG_IMAGE_TYPE;
 
     ClipboardDataIterator.prototype.REG_BREAK_TYPE = /text\/(rtf|plain)/;
 
@@ -746,7 +777,7 @@
     ClipboardDataIterator.prototype._iteratorsSearch = {
         'files': function(data, item) {
             if (CKEDITOR.fileTools.isTypeSupported(item, this.REG_IMAGE_TYPE)) {
-                if (item.size <= this.MAX_SIZE) {
+                if (item.size <= this._maxSize) {
                     data.inline = true;
                 }
 
@@ -788,7 +819,7 @@
             data.prevent = true;
 
             if (CKEDITOR.fileTools.isTypeSupported(item, this.REG_IMAGE_TYPE)) {
-                if (item.size <= this.MAX_SIZE) {
+                if (item.size <= this._maxSize) {
                     this.fire('iterator:inline', item);
                     return false;
                 }
@@ -805,7 +836,7 @@
 
             if (CKEDITOR.fileTools.isTypeSupported(item, this.REG_IMAGE_TYPE)) {
                 var blob = item.getAsFile();
-                if (blob && blob.size <= this.MAX_SIZE) {
+                if (blob && blob.size <= this._maxSize) {
                     data.prevent = true;
                     this.fire('iterator:inline', blob);
                     return true;
