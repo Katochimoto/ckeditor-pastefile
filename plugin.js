@@ -80,6 +80,16 @@
         });
     };
 
+    /**
+     * Проверка необходимости проигнорировать вставку.
+     * К примеру, потому что вставку должен обработать другой плагин.
+     * @param {CKEDITOR.eventInfo} event
+     * @returns {boolean}
+     */
+    CKEDITOR.config.pastefileCheckIgnorePaste = function(event) {
+        return false;
+    };
+
     var ATTR_PASTE_IGNORE = 'data-cke-pastefile-ignore';
     var ATTR_PASTE_INLINE = 'data-cke-pastefile-inline';
     var ATTR_PLACEHOLDER = 'data-cke-pastefile-placeholder';
@@ -298,6 +308,10 @@
 
             var dataTransfer = event.data.dataTransfer && event.data.dataTransfer.$;
             if (!dataTransfer) {
+                return;
+            }
+
+            if (this.config.pastefileCheckIgnorePaste(event)) {
                 return;
             }
 
